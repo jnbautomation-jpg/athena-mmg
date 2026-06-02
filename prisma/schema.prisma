@@ -1,0 +1,63 @@
+// Prisma schema for Athena
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Vehicle {
+  id              String   @id @default(cuid())
+  externalId      String   @unique  // CarGurus listing ID
+  make            String
+  model           String
+  year            Int
+  trim            String?
+  price           Int
+  mileage         Int
+  color           String?
+  description     String?
+  photoUrls       String[] // array of image URLs scraped from CarGurus
+  cargurusUrl     String
+  isActive        Boolean  @default(true)
+  lastScrapedAt   DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  posts           Post[]
+}
+
+model Post {
+  id              String      @id @default(cuid())
+  vehicleId       String
+  vehicle         Vehicle     @relation(fields: [vehicleId], references: [id])
+  platform        Platform
+  contentEn       String
+  contentEs       String
+  status          PostStatus  @default(PENDING)
+  approvalToken   String?     @unique  // for SMS approval links
+  approvedAt      DateTime?
+  publishedAt     DateTime?
+  failureReason   String?
+  metadata        Json?       // platform-specific data (post ID, etc)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+enum Platform {
+  FACEBOOK_MARKETPLACE
+  INSTAGRAM
+}
+
+enum PostStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+}
