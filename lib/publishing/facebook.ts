@@ -539,7 +539,11 @@ export async function publishToFacebook(
       };
     }
 
-    browser = await chromium.launch({ headless: true });
+    // Run headed under xvfb in CI: FB's Marketplace composer behaves more like a
+    // real browser session headed (e.g. it reliably renders the photo file
+    // input), and the workflow wraps this in xvfb-run to provide a display.
+    // Locally we stay headless.
+    browser = await chromium.launch({ headless: !process.env.CI });
     context = await browser.newContext({
       storageState: path,
       userAgent: USER_AGENT,

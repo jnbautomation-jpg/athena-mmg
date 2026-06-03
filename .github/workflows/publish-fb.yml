@@ -47,5 +47,10 @@ jobs:
           FB_SESSION_JSON: ${{ secrets.FB_SESSION_JSON }}
         run: printf '%s' "$FB_SESSION_JSON" > "$FB_SESSION_COOKIES_PATH"
 
+      - name: Install xvfb
+        # The publisher runs Chromium headed in CI (see lib/publishing/facebook.ts);
+        # xvfb provides the virtual display it needs on the headless runner.
+        run: sudo apt-get install -y xvfb
+
       - name: Publish approved posts
-        run: npm run publish-fb
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" npm run publish-fb
