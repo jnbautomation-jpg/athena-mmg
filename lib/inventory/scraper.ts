@@ -161,17 +161,62 @@ function deriveTrim(
   return t || null;
 }
 
-/** Dedupe gallery image URLs by photo id (CarGurus serves many sizes per pic). */
+// Photo URL size suffix, e.g. "-1024x768.jpeg" → [, "1024", "768", ".jpeg"].
+const PHOTO_SIZE_RE = /-(\d+)x(\d+)(\.\w+)$/;
+
+/**
+ * Dedupe gallery image URLs by photo id and upgrade each to the largest size
+ * the gallery serves.
+ *
+ * CarGurus emits many sizes per photo (e.g. "-1024x768", "-296x222"), but the
+ * detail-page DOM usually only carries a small thumbnail for every photo except
+ * the lead one — so naively keeping the first-seen URL stored 296x222
+ * thumbnails for photos 2..N. The CDN only serves a whitelisted set of sizes
+ * (e.g. 800x600 / 1600x1200 are 403), so we can't request an arbitrary larger
+ * size; instead we find the largest size actually present anywhere in the
+ * gallery (a known-served size) and rewrite every photo's suffix to it.
+ */
 function dedupePhotos(urls: string[], max: number): string[] {
+  // Largest WxH suffix seen across the whole gallery (a CDN-served size), and
+  // its aspect ratio — only photos sharing that ratio get upgraded to it.
+  let largestSuffix: string | null = null;
+  let largestArea = 0;
+  let largestRatio = 0;
+  for (const url of urls) {
+    const m = url.split("?")[0].match(PHOTO_SIZE_RE);
+    if (!m) continue;
+    const w = Number(m[1]);
+    const h = Number(m[2]);
+    const area = w * h;
+    if (area > largestArea) {
+      largestArea = area;
+      largestSuffix = `-${w}x${h}`;
+      largestRatio = w / h;
+    }
+  }
+
   const seen = new Set<string>();
   const out: string[] = [];
   for (const url of urls) {
     const clean = url.split("?")[0];
-    // Collapse the "-1024x768" / "-296x222" size suffix to identify the photo.
-    const base = clean.replace(/-\d+x\d+(\.\w+)$/, "$1");
+    // Collapse the size suffix to identify the photo by its id.
+    const base = clean.replace(PHOTO_SIZE_RE, "$3");
     if (seen.has(base)) continue;
     seen.add(base);
-    out.push(clean);
+
+    // Upgrade to the largest gallery size, but only for photos that share its
+    // aspect ratio. An odd-aspect thumbnail (e.g. a 200x200 badge) has no
+    // matching large version and would 403 if rewritten, so it's left as-is.
+    const m = clean.match(PHOTO_SIZE_RE);
+    const sameRatio =
+      m !== null &&
+      largestRatio > 0 &&
+      Math.abs(Number(m[1]) / Number(m[2]) - largestRatio) < 0.02;
+    const upgraded =
+      largestSuffix && sameRatio
+        ? clean.replace(PHOTO_SIZE_RE, `${largestSuffix}$3`)
+        : clean;
+    out.push(upgraded);
     if (out.length >= max) break;
   }
   return out;
