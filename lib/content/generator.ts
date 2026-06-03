@@ -19,10 +19,8 @@ export interface PostCopy {
 
 export type ContentPlatform = "FACEBOOK_MARKETPLACE" | "INSTAGRAM";
 
-// NOTE: requested model. claude-sonnet-4-20250514 (Sonnet 4.0) is deprecated
-// (retires 2026-06-15) — swap to "claude-sonnet-4-6" when ready. Sonnet 4.0
-// still supports `temperature`, which we use here for output variety.
-const MODEL = "claude-sonnet-4-20250514";
+// Sonnet 4.6 supports `temperature`, which we use here for output variety.
+const MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 1500;
 const TEMPERATURE = 1;
 
