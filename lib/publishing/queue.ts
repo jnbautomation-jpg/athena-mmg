@@ -132,10 +132,14 @@ export type ClaimResult =
   | { claimed: false; reason: string; nextEligibleAt: Date | null };
 
 /**
- * If cadence allows, atomically claim the oldest APPROVED post by moving it to
- * PUBLISHING and return it. The conditional update guards against two workers
- * grabbing the same post. The caller publishes it, then calls markPublished /
- * markFailed.
+ * If cadence allows, atomically claim the oldest publishable post by moving it
+ * to PUBLISHING and return it. Two kinds of post are publishable:
+ *   - APPROVED posts (e.g. Instagram, which passed the SMS approval gate).
+ *   - PUBLISHED posts with a null publishedAt — Facebook Marketplace posts that
+ *     the post cron generates pre-PUBLISHED (skipping approval) but which have
+ *     not yet actually been posted to Facebook.
+ * The conditional update guards against two workers grabbing the same post. The
+ * caller publishes it, then calls markPublished / markFailed.
  */
 export async function claimNextPublishablePost(): Promise<ClaimResult> {
   const status = await getCadenceStatus();
@@ -148,7 +152,13 @@ export async function claimNextPublishablePost(): Promise<ClaimResult> {
   }
 
   const candidate = await prisma.post.findFirst({
-    where: { status: PostStatus.APPROVED },
+    where: {
+      OR: [
+        { status: PostStatus.APPROVED },
+        // FB posts generated pre-PUBLISHED but not yet posted to Facebook.
+        { status: PostStatus.PUBLISHED, publishedAt: null },
+      ],
+    },
     orderBy: [{ approvedAt: "asc" }, { createdAt: "asc" }],
     include: { vehicle: true },
   });
@@ -156,14 +166,20 @@ export async function claimNextPublishablePost(): Promise<ClaimResult> {
   if (!candidate) {
     return {
       claimed: false,
-      reason: "No approved posts awaiting publication.",
+      reason: "No posts awaiting publication.",
       nextEligibleAt: null,
     };
   }
 
-  // Atomic claim: only succeeds if the post is still APPROVED.
+  // Atomic claim: only succeeds if the post is still in the state we found it
+  // in, so a concurrent worker can't grab the same post. Guard on the matching
+  // condition for whichever kind of candidate this is.
+  const claimWhere =
+    candidate.status === PostStatus.PUBLISHED
+      ? { id: candidate.id, status: PostStatus.PUBLISHED, publishedAt: null }
+      : { id: candidate.id, status: PostStatus.APPROVED };
   const claim = await prisma.post.updateMany({
-    where: { id: candidate.id, status: PostStatus.APPROVED },
+    where: claimWhere,
     data: { status: PostStatus.PUBLISHING },
   });
 
