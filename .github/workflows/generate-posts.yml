@@ -1,0 +1,23 @@
+name: Generate Posts
+
+on:
+  schedule:
+    # 9:00 AM ET daily. GitHub Actions cron is UTC and does NOT observe DST:
+    # 13:00 UTC = 9:00 AM EDT (summer) / 8:00 AM EST (winter)
+    - cron: "0 13 * * *"
+  # Allow manual runs from the Actions tab.
+  workflow_dispatch: {}
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Hit post generation cron endpoint
+        env:
+          VERCEL_APP_URL: ${{ secrets.VERCEL_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$VERCEL_APP_URL/api/cron/post"
