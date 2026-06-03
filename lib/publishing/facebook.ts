@@ -45,6 +45,13 @@ const DEFAULT_SESSION_PATH = "./fb-session.json";
 
 const NAV_TIMEOUT_MS = 60_000;
 const ELEMENT_TIMEOUT_MS = 15_000;
+// The photo file input can be slow to render (and is sometimes deferred until
+// the upload area is clicked) in headless/CI, so it gets a longer timeout.
+const FILE_INPUT_TIMEOUT_MS = 30_000;
+// FB's photo input is matched by type or by its image/video accept filter —
+// the type attribute alone isn't always present on the build CI sees.
+const PHOTO_INPUT_SELECTOR =
+  'input[type="file"], input[accept*="image"], input[accept*="video"]';
 const MIN_DELAY_MS = 700;
 const MAX_DELAY_MS = 2000;
 const MAX_PHOTOS = 20;
@@ -272,7 +279,7 @@ async function fillTextField(
 async function formScope(page: Page): Promise<Page | Locator> {
   const form = page
     .locator("form")
-    .filter({ has: page.locator('input[type="file"]') })
+    .filter({ has: page.locator(PHOTO_INPUT_SELECTOR) })
     .first();
   return (await form.count()) > 0 ? form : page;
 }
@@ -353,8 +360,24 @@ async function selectOrType(
 
 /** Push the staged photo files into FB's (hidden) file input. */
 async function uploadPhotos(page: Page, files: string[]): Promise<void> {
-  const input = page.locator('input[type="file"]').first();
-  await input.waitFor({ state: "attached", timeout: ELEMENT_TIMEOUT_MS });
+  // FB sometimes defers rendering the file <input> until the upload area is
+  // interacted with — this seems to bite headless/CI in particular. Best-effort:
+  // click an "Add photos" trigger first to force the input into the DOM. Ignore
+  // failures; on builds where the input is already present this is a harmless
+  // no-op (and we match it below regardless).
+  const trigger = page
+    .getByRole("button", { name: /add photos?|add up to/i })
+    .first();
+  if (await trigger.count().catch(() => 0)) {
+    await trigger.click().catch(() => {});
+    await humanDelay();
+  }
+
+  // Match the input by type OR image/video accept filter, and set files
+  // directly on it without requiring visibility (it's typically hidden). Use a
+  // dedicated longer timeout since the composer can be slow to render in CI.
+  const input = page.locator(PHOTO_INPUT_SELECTOR).first();
+  await input.waitFor({ state: "attached", timeout: FILE_INPUT_TIMEOUT_MS });
   await input.setInputFiles(files);
   await humanDelay();
 }
