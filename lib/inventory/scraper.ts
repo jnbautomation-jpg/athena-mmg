@@ -324,9 +324,13 @@ interface RawDetail {
   photoUrls: string[];
   description: string | null;
   color: string | null;
+  interiorColor: string | null;
 }
 
-/** Open an individual listing page and pull h1, photos, description, color. */
+/**
+ * Open an individual listing page and pull h1, photos, description, exterior
+ * color, and interior color.
+ */
 async function scrapeDetail(page: Page, url: string): Promise<RawDetail> {
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
   await page
@@ -366,7 +370,13 @@ async function scrapeDetail(page: Page, url: string): Promise<RawDetail> {
         .map((t) => t.match(/Exterior color\s*:?\s*([A-Za-z ]+)/i)?.[1]?.trim())
         .find((v): v is string => Boolean(v)) ?? null;
 
-    return { h1, photoUrls, description, color };
+    const interiorColor =
+      Array.from(document.querySelectorAll("li, tr, dt, div"))
+        .map((el) => el.textContent?.replace(/\s+/g, " ").trim() ?? "")
+        .map((t) => t.match(/Interior color\s*:?\s*([A-Za-z ]+)/i)?.[1]?.trim())
+        .find((v): v is string => Boolean(v)) ?? null;
+
+    return { h1, photoUrls, description, color, interiorColor };
   });
 }
 
@@ -459,6 +469,7 @@ export async function scrapeInventory(): Promise<ScrapedVehicle[]> {
         photoUrls: [],
         description: null,
         color: null,
+        interiorColor: null,
       };
       try {
         detail = await scrapeDetail(page, tile.href);
@@ -486,6 +497,7 @@ export async function scrapeInventory(): Promise<ScrapedVehicle[]> {
         price: parsePrice(tile.cardText),
         mileage: specs.mileage,
         color: specs.color ?? detail.color,
+        interiorColor: detail.interiorColor,
         description: detail.description,
         photoUrls,
         cargurusUrl: tile.href,

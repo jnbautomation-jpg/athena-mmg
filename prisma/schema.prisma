@@ -20,7 +20,8 @@ model Vehicle {
   trim            String?
   price           Int
   mileage         Int
-  color           String?
+  color           String?  // exterior color
+  interiorColor   String?
   description     String?
   photoUrls       String[] // array of image URLs scraped from CarGurus
   cargurusUrl     String

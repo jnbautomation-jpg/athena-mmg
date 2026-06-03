@@ -613,7 +613,8 @@ export async function publishToFacebook(
 
     // Transmission + Interior color round out the required set. Transmission
     // defaults to Automatic (true for this car and most modern inventory);
-    // Interior color defaults to Black (not in our data). Best-effort.
+    // Interior color uses the scraped value, falling back to Black when the
+    // listing didn't expose one. Best-effort.
     await selectDropdown(page, ["Transmission"], "Automatic", form, false).catch(
       (err) =>
         console.warn(`[publish-fb] could not set transmission: ${err.message}`),
@@ -621,7 +622,7 @@ export async function publishToFacebook(
     await selectDropdown(
       page,
       ["Interior color", "Interior colour"],
-      "Black",
+      vehicle.interiorColor ?? "Black",
       form,
       true,
     ).catch((err) =>

@@ -14,7 +14,8 @@ export interface ScrapedVehicle {
   trim?: string | null;
   price: number;
   mileage: number;
-  color?: string | null;
+  color?: string | null; // exterior color
+  interiorColor?: string | null;
   description?: string | null;
   photoUrls: string[]; // array of image URLs scraped from CarGurus
   cargurusUrl: string;
