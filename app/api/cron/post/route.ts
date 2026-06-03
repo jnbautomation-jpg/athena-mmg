@@ -3,7 +3,8 @@
 // Protected by CRON_SECRET (same pattern as the scrape route). For each active
 // vehicle that hasn't been posted to a platform in the last 7 days, generates
 // EN/ES copy and creates a Post:
-//   - FACEBOOK_MARKETPLACE → PUBLISHED (auto-publish, no approval gate)
+//   - FACEBOOK_MARKETPLACE → PUBLISHED with publishedAt = null (no approval
+//     gate; the publisher claims it and sets publishedAt when actually posted)
 //   - INSTAGRAM            → PENDING   (awaits SMS approval; carries a token)
 //
 // Cadence cap: POSTING_CADENCE_MAX_PER_DAY bounds how many posts go out per
@@ -122,7 +123,6 @@ export async function GET(request: Request): Promise<NextResponse> {
             contentEn: copy.contentEn,
             contentEs: copy.contentEs,
             status: PostStatus.PUBLISHED,
-            publishedAt: new Date(),
             metadata: { variationSeed: copy.variationSeed },
           },
         });
