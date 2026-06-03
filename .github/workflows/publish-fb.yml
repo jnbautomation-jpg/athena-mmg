@@ -1,0 +1,51 @@
+name: Publish to Facebook Marketplace
+
+on:
+  schedule:
+    # 9:30 AM & 3:30 PM ET. GitHub Actions cron is UTC and does NOT observe DST:
+    # 13:30 UTC = 9:30 AM EDT (summer) / 8:30 AM EST (winter)
+    # 19:30 UTC = 3:30 PM EDT (summer) / 2:30 PM EST (winter)
+    - cron: "30 13 * * *"
+    - cron: "30 19 * * *"
+  # Allow manual runs from the Actions tab.
+  workflow_dispatch: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # DB credentials come from repo secrets.
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      # The publisher reads the saved Playwright session from this path; we
+      # reconstruct it from a secret below before running.
+      FB_SESSION_COOKIES_PATH: fb-session.json
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Restore FB session
+        # Write the full fb-session.json contents (stored as a secret) to the
+        # path the publisher expects. printf '%s' avoids mangling JSON escapes.
+        env:
+          FB_SESSION_JSON: ${{ secrets.FB_SESSION_JSON }}
+        run: printf '%s' "$FB_SESSION_JSON" > "$FB_SESSION_COOKIES_PATH"
+
+      - name: Publish approved posts
+        run: npm run publish-fb
