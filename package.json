@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "scrape": "tsx scripts/run-scrape.ts",
-    "save-fb-session": "tsx scripts/save-fb-session.ts"
+    "save-fb-session": "tsx scripts/save-fb-session.ts",
+    "publish-fb": "tsx scripts/run-publish-fb.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",

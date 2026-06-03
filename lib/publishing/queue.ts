@@ -224,6 +224,20 @@ export async function markFailed(postId: string, reason: string): Promise<void> 
   });
 }
 
+/**
+ * Return a claimed (PUBLISHING) post to APPROVED so it can be claimed again.
+ * Used when a publisher claims a post it can't handle right now (e.g. the FB
+ * publisher claims an Instagram post, or the FB session has expired) and wants
+ * to hand it back rather than fail it. The conditional guards against clobbering
+ * a post that has since moved to PUBLISHED/FAILED.
+ */
+export async function releaseClaim(postId: string): Promise<void> {
+  await prisma.post.updateMany({
+    where: { id: postId, status: PostStatus.PUBLISHING },
+    data: { status: PostStatus.APPROVED },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Observability
 // ---------------------------------------------------------------------------
