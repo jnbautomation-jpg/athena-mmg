@@ -54,3 +54,14 @@ jobs:
 
       - name: Publish approved posts
         run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" npm run publish-fb
+
+      - name: Upload error screenshots
+        # The publisher writes /tmp/fb-error-*.png on each failure. Upload them
+        # even when the publish step fails so we can download and inspect them.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fb-error-screenshots
+          path: /tmp/fb-error-*.png
+          if-no-files-found: ignore
+          retention-days: 7
