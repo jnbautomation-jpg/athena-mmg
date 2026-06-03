@@ -1,0 +1,40 @@
+name: Nightly Inventory Scrape
+
+on:
+  schedule:
+    # 2:00 AM ET. GitHub Actions cron is UTC and does NOT observe DST:
+    # 06:00 UTC = 2 AM EDT (summer) / 1 AM EST (winter).
+    - cron: "0 6 * * *"
+  # Allow manual runs from the Actions tab.
+  workflow_dispatch: {}
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # DB credentials come from repo secrets; the dealer URL is public.
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      CARGURUS_DEALER_URL: https://www.cargurus.com/Cars/m-Miami-Motor-Group-sp452895
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run inventory sync
+        run: npm run scrape
